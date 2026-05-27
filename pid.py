@@ -68,6 +68,9 @@ class Simulation(object):
     #1 degree of freedom problem 2 sep PID problem
 
 
+#thrust verc control rocket, Integral builds over time, how far away for how long
+#-->Gimple for 3 sec only 3 sec for integral error, PD controler 
+# misalignment, (Slowly correct for upright minimize translational motion)
 class Rocket(object):
     def __init__(self):
         global Rocket
@@ -112,9 +115,17 @@ class PID(object):
     def __init__(self, KP, KI, KD, target): 
         self.kp = KP
         self.ki = KI 
-        self.kd = KD
+        self.kd = KD # quickly adjust for subpoint swing or overshoot subpoint
+        self.setpoint = target 
+        self.error = 0
+        self.integral_error = 0
         
-
+        self.error_last = 0
+        self.derivative_error = 0 
+        self.output = 0
+    def computer(self, pos):
+        self.error = target - pos 
+        self. integra
 
 def main():
     # while(TIMER < 5):
