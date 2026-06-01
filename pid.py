@@ -1,20 +1,18 @@
-import numpy as np
-import matplotlib
 import turtle
 import time
 
 #GLOBAL PARAMS
 TIMER = 0
-SETPOINT = 10 #final goal
-SIM_TIME = 100    # in sec
+SETPOINT = 100 #final goal
+SIM_TIME = 45    # in sec
 
-TIME_STEP = 0.005
+TIME_STEP = 0.05
 
 #_______
 INITIAL_X = 0
-INITIAL_Y = -100
+INITIAL_Y = -400
 MASS = 1 #kg
-MAX_THRUST = 15 #Newtons
+MAX_THRUST = 100 #Newtons
 g = -9.81 # Gravitational constant
 
 V_i = 0 #initial velocity
@@ -24,19 +22,29 @@ Y_i = 0 #initial height
 # -----------
 
 class Simulation(object):
-    def __init__(self,KP=0.025,KI=0,KD=0.0125):
-
-        self.Insight = Rocket()
+    def __init__(self,KP=10,KI=0,KD=46):
 
         self.screen = turtle.Screen()
         self.screen.setup(1280, 900)
-        self.marker = turtle.Turtle()
+        self.screen.tracer(0)
 
-        #Move marker to set_point
+        self.Insight = Rocket()
+
+        self.marker = turtle.Turtle()
+        self.marker.hideturtle()
         self.marker.penup()
-        self.marker.left(180)
-        self.marker.goto(15,SETPOINT)
+        self.marker.goto(-100, SETPOINT)
         self.marker.color('red')
+        self.marker.pendown()
+        self.marker.goto(100, SETPOINT)
+
+        # Scoreboard Setup for displaying Error on Screen
+        self.writer = turtle.Turtle()
+        self.writer.hideturtle()
+        self.writer.color('blue')
+        self.writer.penup()
+        self.writer.goto(-600, 350) # Position text in top-left corner
+
         self.sim = True
         self.timer = 0
 
@@ -49,13 +57,29 @@ class Simulation(object):
         while(self.sim):
 
             # generate thrust output using PID
-            thrust = min(MAX_THRUST,self.pid.compute(self.Insight.get_y()))
+            thrust = max(0,min(MAX_THRUST,self.pid.compute(self.Insight.get_y())))
 
             self.Insight.set_ddy(thrust)
             self.Insight.set_dy()
             self.Insight.set_y()
+
+            # Update the text error scoreboard dynamically
+            self.writer.clear()
+            current_error = SETPOINT - self.Insight.get_y()
+            total_ise = self.pid.get_abs_integral_error()
+            self.writer.write(
+                f"Time:            {self.timer:>8.2f}\n"
+                f"Instant Error:   {current_error:>8.2f}\n"
+                f"Cumulative ISE: {total_ise:>8.2f}",
+                align="left",
+                font=("Courier", 16, "normal")
+            )
+
+            # Refresh graphics safely
+            self.screen.update()
+
             time.sleep(TIME_STEP)
-            self.timer +=1
+            self.timer += TIME_STEP
 
             if self.timer > SIM_TIME:
                 self.sim = False
@@ -96,19 +120,17 @@ class Rocket(object):
         return self.ddy
 
     def set_dy(self):
-        self.dy += self.ddy #2nd derivate ddy has it's own Intergral this is  Velocity
+        self.dy += self.ddy * TIME_STEP
 
     def get_dy(self):
         return self.dy
 
 
     def set_y(self):
-        # self.y += self.dy
-        self.Rocket.sety(self.y + self.dy)
-        # return self.y
+        self.y += self.dy * TIME_STEP
+        self.Rocket.sety(self.y)
 
     def get_y(self):
-        self.y = self.Rocket.ycor()
         return self.y
 
 
@@ -130,8 +152,8 @@ class PID(object):
         self.error_last = self.error
         self.error = self.set_point - pos;
         self.derivative_error = (self.error - self.error_last) / TIME_STEP
-        self.integral_error += self.error
-        self.abs_integral_error += abs(self.error)
+        self.integral_error += self.error * TIME_STEP
+        self.abs_integral_error += (self.error) ** 2  * TIME_STEP
         self.output = self.kp * self.error + self.ki * self.integral_error + self.kd * self.derivative_error
         # print("error:",self.error)
         # print("integral_error:",self.integral_error)
